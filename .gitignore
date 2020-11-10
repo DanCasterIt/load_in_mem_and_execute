@@ -1,0 +1,8 @@
+# Ignore everything
+*
+# But allow what follows
+!.gitignore
+!.README.md
+!.LICENSE
+!.x86_inline_examples.c
+!.load_and_execute.c
