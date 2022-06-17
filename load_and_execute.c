@@ -1,82 +1,146 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <sys/mman.h>
 
-//typedef void (*func_t)(void);
+#define JUMP_EXECUTE_MODE 0
+#define COMPILE_MODE 1
+#define SEPARATION "-----------------------------------------------------------\n"
 
-void generate_c_program();
+void generate_c_program(char *file_name);
+void dump(void **ptr, int size, char name[]);
 
 int main(int argc, char *argv[])	{
-	generate_c_program();
+	char program_name[] = "simple_c_program";
+	char buffer[39 + strlen(program_name)];
+	int dim;
+	FILE *fd;
+	uint8_t *prog;
+	uintptr_t tmp;
 
-	system("gcc hello.c -c -Wl,--oformat=binary");
-	system("objcopy -O binary -j .text hello.o hello.bin");
-	system("objdump -d hello.o");
+	strcpy(buffer, program_name);
+	strcat(buffer, ".c");
+	printf(SEPARATION);
+	generate_c_program(buffer);
+	printf(SEPARATION);
 
-	//system("gcc -nostdinc -m32 -masm=intel -Wall -c hello.c -o hello.o");
-	//system("objdump --disassemble --disassembler-options intel hello.o");
-	//system("objcopy --only-section=.text --output-target binary hello.o hello.bin");
+#if COMPILE_MODE == 0
+	sprintf(buffer, "gcc %s.c -c -Wl,--oformat=binary", program_name);
+	system(buffer);
+	sprintf(buffer, "objcopy -O binary -j .text %s.o %s.bin", program_name, program_name);
+	system(buffer);
+	sprintf(buffer, "objdump -d %s.o", program_name);
+	system(buffer);
+#else
+	sprintf(buffer, "gcc -masm=intel -Wall -c %s.c -o %s.o", program_name, program_name);
+	system(buffer);
+	sprintf(buffer, "objdump --disassemble --disassembler-options intel %s.o", program_name);
+	system(buffer);
+	sprintf(buffer, "objcopy --only-section=.text --output-target binary %s.o %s.bin", program_name, program_name);
+	system(buffer);
+#endif
 
-	FILE *fd = fopen("hello.bin", "rb");
+	strcpy(buffer, program_name);
+	strcat(buffer, ".bin");
+	fd = fopen(buffer, "rb");
 	fseek(fd, 0, SEEK_END);
-	int dim = ftell(fd);
+	dim = ftell(fd);
 	fseek(fd, 0, SEEK_SET);
-	printf(">>>>>>>>>>>>>>>>>>>>>>hex dump of hello.bin>>>>>>>>>>>>>>>>>>>>>>\n");
-	printf("Binary file size is: %d bytes\n", dim);
-	uint8_t *prog = (uint8_t*)malloc(dim);
-	//uint8_t prog[dim];
+
+	//heap and stack memory can't be executed, so no malloc() can be used.
+	//Allocate some executable memory using mmap():
+	//PROT_EXEC = executable memory
+	//NULL = allocate memory
+	prog = (uint8_t*)mmap(NULL, dim, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	if(prog == MAP_FAILED)	{
+		printf("ERROR: mmap() failed\n");
+		return 0;
+	}
 	fread(prog, 1, dim, fd);
 	fclose(fd);
-	int i;
-	for(i = 0; i < dim; i++)	{
-		printf("%02X", (unsigned int)prog[i]);
-		if((i + 1) % 0xF) printf(" ");
-		else printf("\n");
-	}
-	printf("\n<<<<<<<<<<<<<<<<<<<<<<<hex dump of hello.bin<<<<<<<<<<<<<<<<<<<<<<<\n");
-	uintptr_t tmp = (uintptr_t)prog;
-	printf("Address lenght: %ld bits\n", sizeof(uintptr_t) * 8);
-	printf("File loaded in memory at 0x%08X\n", (unsigned int)tmp);
-	printf("Trying to jump and execute...\n");
-	
-	//void (*foo)(void) = (void (*)())tmp;
-	//foo();
-	
-	//void *ptr = (void *)tmp;
-	//goto *ptr;
+	mprotect(prog, dim, PROT_READ | PROT_EXEC);
 
-	//unsigned long address=tmp; 
-	//void (*func_ptr)(void) = (void (*)(void))address;
-	//func_ptr();
-	
-	//((func_t)tmp)();
-	
-	//goto *(void*)prog;
+	printf(SEPARATION);
+	dump((void **)prog, dim, buffer);
+	printf(SEPARATION);
 
-	uintptr_t input, output = 0;
-	input = tmp;
-	printf("input  = 0x%08X, output = 0x%08X\n", input, output);
+	tmp = (uintptr_t)prog;
+	printf("Address lenght: %u bits\n", (unsigned int)sizeof(uintptr_t) * 8);
+	printf("File loaded in memory at 0x%0*X\n", (int)sizeof(uintptr_t) * 2, (unsigned int)tmp);
+	printf("Executing the program...\n");
+
+#if JUMP_EXECUTE_MODE == 0
+	void (*func_ptr)(void) = (void (*)())tmp;
+	func_ptr();
+#elif JUMP_EXECUTE_MODE == 1
+	//executes the program and exits with "Segmentation fault"
+	//because 'goto' translates in a JMP instead of a CALL instruction
+	void *ptr = (void *)tmp;
+	goto *ptr;
+#elif JUMP_EXECUTE_MODE == 2
+	void (*func_ptr)(void) = (void (*)(void))tmp;
+	func_ptr();
+#elif JUMP_EXECUTE_MODE == 3
+	typedef void (*func_t)(void);
+	((func_t)tmp)();
+#elif JUMP_EXECUTE_MODE == 4
+	//executes the program and exits with "Segmentation fault"
+	//because 'goto' translates in a JMP instead of a CALL instruction
+	goto *(void*)prog;
+#else
 	asm(
 		".intel_syntax;"
-		"MOV EAX, %1;"
-		//"JMP EAX;"
-		"MOV %0, EAX;"
+		"CALL %0;"
 		".att_syntax;"
-		: "=r"(output)
-		: "r"(input)
-		: "eax"
+		: : "r"(tmp)
 	);
-	printf("input  = 0x%08X, output = 0x%08X\n", input, output);
+#endif
 
-	free(prog);
+	printf("Execution correctly returned.\n");
+	printf(SEPARATION);
+
+	munmap(prog, dim);
 	return 0;
 }
 
-void generate_c_program()	{
-	FILE *fd = fopen("hello.c", "w");
+void generate_c_program(char *file_name)	{
+	int dim = 0;
+	char buffer[200] = {'\0'};
+	FILE *fd = fopen(file_name, "w+");
+
+	printf("Generating %s:\n\n", file_name);
+
+	//can't use any standard library function like printf()
+	//because that would create relocation problems:
+	//we don't know where the C library is loaded in memory
+	//we don't know the offset to printf routine
 	fprintf(fd, "#include <stdio.h>\n\n");
 	fprintf(fd, "int main(int argc, char *argv[])\t{\n");
-	fprintf(fd, "\tprintf(\"Hello, world\\n\");\n");
-	fprintf(fd, "\treturn 0;\n}");
+	fprintf(fd, "\tint a = 1;\n");
+	fprintf(fd, "\twhile(a != 0)\n");
+	fprintf(fd, "\t\ta++;\n");
+	fprintf(fd, "\treturn 0;\n");
+	fprintf(fd, "}");
+
+	dim = ftell(fd);
+	fseek(fd, 0, SEEK_SET);
+	fread(buffer, 1, dim, fd);
+
+	printf("%s\n", buffer);
 	fclose(fd);
+}
+
+void dump(void **ptr, int size, char name[])	{
+    int i;
+    char str[0x10 * 3] = {'\0'};
+
+    printf("Hex dump of %s:\n", name);
+    printf("       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F\n");
+    for(i = 0; i < size; i++)      {
+        if(i % 0x10 == 0 && i != 0)      printf("%s\n", str);
+        if(i % 0x10 == 0)	printf("%*X:", 4, (unsigned int)i);
+        sprintf(&str[(i % 0x10) * 3], " %02X", (unsigned int)(((uint8_t*)(&*ptr))[i]));
+    }
+    printf("%s\n", str);
 }
