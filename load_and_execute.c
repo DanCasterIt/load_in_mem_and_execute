@@ -14,6 +14,7 @@ void dump(void **ptr, int size, char name[]);
 int main(int argc, char *argv[])	{
 	char program_name[] = "simple_c_program";
 	char buffer[39 + strlen(program_name)];
+	char str[] = "Hello World!\n";
 	int dim;
 	FILE *fd;
 	uint8_t *prog;
@@ -61,6 +62,8 @@ int main(int argc, char *argv[])	{
 	fclose(fd);
 	mprotect(prog, dim, PROT_READ | PROT_EXEC);
 
+	printf(SEPARATION);
+	dump((void **)str, 13, "\"Hello World!\\n\"");
 	printf(SEPARATION);
 	dump((void **)prog, dim, buffer);
 	printf(SEPARATION);
@@ -111,15 +114,24 @@ void generate_c_program(char *file_name)	{
 
 	printf("Generating %s:\n\n", file_name);
 
-	//can't use any standard library function like printf()
+	//Can't use any standard library function like printf()
 	//because that would create relocation problems:
 	//we don't know where the C library is loaded in memory
-	//we don't know the offset to printf routine
-	fprintf(fd, "#include <stdio.h>\n\n");
+	//and we don't know the offset to the printf() routine.
+	//We might use the kernel's syscall write() instead
+	//because it's accessed through an interrupt and doesn't
+	//need to be called through relocation in legacy systems.
+	//Unfortunately though, recent kernels are implementing
+	//vDSO (virtual dynamic shared object), notably to
+	//dynamically optimize system calls
+	//(the kernel sets the VDSO to some code best for the current processor),
+	//so in the assembly code, the write() syscall will be translated with
+	//a CALL instruction to a vDSO like printf() with the standard C library.
+	fprintf(fd, "#include <stdio.h>\n");
+	fprintf(fd, "#include <unistd.h>\n\n");
 	fprintf(fd, "int main(int argc, char *argv[])\t{\n");
-	fprintf(fd, "\tint a = 1;\n");
-	fprintf(fd, "\twhile(a != 0)\n");
-	fprintf(fd, "\t\ta++;\n");
+	fprintf(fd, "\tchar str[] = \"Hello World!\\n\";\n");
+	fprintf(fd, "\twrite(1, str, 13);\n"); //translates into something like "call   4f <main+0x4f>"
 	fprintf(fd, "\treturn 0;\n");
 	fprintf(fd, "}");
 
