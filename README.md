@@ -9,6 +9,91 @@ This is a simple program that tryies to:
 ## How to compile
 ```gcc load_and_execute.c -o load_and_execute```
 
+## Output
+```
+> ./load_and_execute
+-----------------------------------------------------------
+Loading assembly_syscall.c:
+
+#include <stdio.h>
+#include <asm/unistd.h>
+
+int main()  {
+    int fd = 1;
+    size_t size = 13;
+    char str[] = "Hello world!\n";
+    const void *buf = (const void *)str;
+    asm volatile(
+        "syscall"
+        //                  EDI      RSI       RDX
+        :: "a"(__NR_write), "D"(fd), "S"(buf), "d"(size)
+        : "rcx", "r11", "memory"
+    );
+    return 0;
+}
+
+-----------------------------------------------------------
+
+assembly_syscall.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <main>:
+   0:   55                      push   rbp
+   1:   48 89 e5                mov    rbp,rsp
+   4:   48 83 ec 30             sub    rsp,0x30
+   8:   64 48 8b 04 25 28 00    mov    rax,QWORD PTR fs:0x28
+   f:   00 00 
+  11:   48 89 45 f8             mov    QWORD PTR [rbp-0x8],rax
+  15:   31 c0                   xor    eax,eax
+  17:   c7 45 d4 01 00 00 00    mov    DWORD PTR [rbp-0x2c],0x1
+  1e:   48 c7 45 d8 0d 00 00    mov    QWORD PTR [rbp-0x28],0xd
+  25:   00 
+  26:   48 b8 48 65 6c 6c 6f    movabs rax,0x6f77206f6c6c6548
+  2d:   20 77 6f 
+  30:   48 89 45 ea             mov    QWORD PTR [rbp-0x16],rax
+  34:   c7 45 f2 72 6c 64 21    mov    DWORD PTR [rbp-0xe],0x21646c72
+  3b:   66 c7 45 f6 0a 00       mov    WORD PTR [rbp-0xa],0xa
+  41:   48 8d 45 ea             lea    rax,[rbp-0x16]
+  45:   48 89 45 e0             mov    QWORD PTR [rbp-0x20],rax
+  49:   b8 01 00 00 00          mov    eax,0x1
+  4e:   8b 7d d4                mov    edi,DWORD PTR [rbp-0x2c]
+  51:   48 8b 75 e0             mov    rsi,QWORD PTR [rbp-0x20]
+  55:   48 8b 55 d8             mov    rdx,QWORD PTR [rbp-0x28]
+  59:   0f 05                   syscall 
+  5b:   b8 00 00 00 00          mov    eax,0x0
+  60:   48 8b 4d f8             mov    rcx,QWORD PTR [rbp-0x8]
+  64:   64 48 33 0c 25 28 00    xor    rcx,QWORD PTR fs:0x28
+  6b:   00 00 
+  6d:   74 05                   je     74 <main+0x74>
+  6f:   e8 00 00 00 00          call   74 <main+0x74>
+  74:   c9                      leave  
+  75:   c3                      ret    
+-----------------------------------------------------------
+Hex dump of "Hello World!\n":
+       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+   0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A
+-----------------------------------------------------------
+Hex dump of assembly_syscall.bin:
+       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+   0: 55 48 89 E5 48 83 EC 30 64 48 8B 04 25 28 00 00
+  10: 00 48 89 45 F8 31 C0 C7 45 D4 01 00 00 00 48 C7
+  20: 45 D8 0D 00 00 00 48 B8 48 65 6C 6C 6F 20 77 6F
+  30: 48 89 45 EA C7 45 F2 72 6C 64 21 66 C7 45 F6 0A
+  40: 00 48 8D 45 EA 48 89 45 E0 B8 01 00 00 00 8B 7D
+  50: D4 48 8B 75 E0 48 8B 55 D8 0F 05 B8 00 00 00 00
+  60: 48 8B 4D F8 64 48 33 0C 25 28 00 00 00 74 05 E8
+  70: 00 00 00 00 C9 C3
+-----------------------------------------------------------
+Address lenght: 64 bits
+File loaded in memory at 0x000000005A25C000
+Executing the program...
+Hello world!
+Execution correctly returned.
+-----------------------------------------------------------
+```
+
 ## Interesting sources around the web
 use mmap() to allocate executable memory:
 https://stackoverflow.com/questions/19634587/c-function-pointer-can-i-jump-to-heap-memory-assembler-code
@@ -25,80 +110,11 @@ https://en.wikipedia.org/wiki/VDSO
 Linking assembly (ASM) sources:
 https://stackoverflow.com/questions/15419201/system-write-integer
 
-## Output
-```
-> ./load_and_execute 
------------------------------------------------------------
-Generating simple_c_program.c:
+C inline assembly "syscall" instruction for x64 machines usage example ("int 0x80" x86 version available as well):
+https://stackoverflow.com/questions/9506353/how-to-invoke-a-system-call-via-syscall-or-sysenter-in-inline-assembly
 
-#include <stdio.h>
-#include <unistd.h>
+Assembly "syscall" instruction for x64 machines usage example:
+https://github.com/cirosantilli/x86-assembly-cheat/blob/279ab1add4302a4e43d31db9e3da688fc2ddbf9c/x86-64/linux/hello_world.asm#L8
 
-int main(int argc, char *argv[])        {
-        char str[] = "Hello World!\n";
-        write(1, str, 13);
-        return 0;
-}
------------------------------------------------------------
-
-simple_c_program.o:     file format elf64-x86-64
-
-
-Disassembly of section .text:
-
-0000000000000000 <main>:
-   0:   55                      push   rbp
-   1:   48 89 e5                mov    rbp,rsp
-   4:   48 83 ec 30             sub    rsp,0x30
-   8:   89 7d dc                mov    DWORD PTR [rbp-0x24],edi
-   b:   48 89 75 d0             mov    QWORD PTR [rbp-0x30],rsi
-   f:   64 48 8b 04 25 28 00    mov    rax,QWORD PTR fs:0x28
-  16:   00 00 
-  18:   48 89 45 f8             mov    QWORD PTR [rbp-0x8],rax
-  1c:   31 c0                   xor    eax,eax
-  1e:   48 b8 48 65 6c 6c 6f    movabs rax,0x6f57206f6c6c6548
-  25:   20 57 6f 
-  28:   48 89 45 ea             mov    QWORD PTR [rbp-0x16],rax
-  2c:   c7 45 f2 72 6c 64 21    mov    DWORD PTR [rbp-0xe],0x21646c72
-  33:   66 c7 45 f6 0a 00       mov    WORD PTR [rbp-0xa],0xa
-  39:   48 8d 45 ea             lea    rax,[rbp-0x16]
-  3d:   ba 0d 00 00 00          mov    edx,0xd
-  42:   48 89 c6                mov    rsi,rax
-  45:   bf 01 00 00 00          mov    edi,0x1
-  4a:   e8 00 00 00 00          call   4f <main+0x4f>
-  4f:   b8 00 00 00 00          mov    eax,0x0
-  54:   48 8b 4d f8             mov    rcx,QWORD PTR [rbp-0x8]
-  58:   64 48 33 0c 25 28 00    xor    rcx,QWORD PTR fs:0x28
-  5f:   00 00 
-  61:   74 05                   je     68 <main+0x68>
-  63:   e8 00 00 00 00          call   68 <main+0x68>
-  68:   c9                      leave  
-  69:   c3                      ret    
------------------------------------------------------------
-Hex dump of "Hello World!\n":
-       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-   0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A
------------------------------------------------------------
-Hex dump of simple_c_program.bin:
-       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-   0: 55 48 89 E5 48 83 EC 30 89 7D DC 48 89 75 D0 64
-  10: 48 8B 04 25 28 00 00 00 48 89 45 F8 31 C0 48 B8
-  20: 48 65 6C 6C 6F 20 57 6F 48 89 45 EA C7 45 F2 72
-  30: 6C 64 21 66 C7 45 F6 0A 00 48 8D 45 EA BA 0D 00
-  40: 00 00 48 89 C6 BF 01 00 00 00 E8 00 00 00 00 B8
-  50: 00 00 00 00 48 8B 4D F8 64 48 33 0C 25 28 00 00
-  60: 00 74 05 E8 00 00 00 00 C9 C3
------------------------------------------------------------
-Address lenght: 64 bits
-File loaded in memory at 0x00000000BF2C9000
-Executing the program...
-Execution correctly returned.
------------------------------------------------------------
-```
-## Known issues
-When doing
-```
-> ./simple_c_program 
-Hello World!
-```
-we can see the output "Hello World!", but if calling simple_c_program from load_and_executewe can't because of modern kernels use vDSO.
+x86's "int 0x80" assembly code example:
+https://stackoverflow.com/questions/1817577/what-does-int-0x80-mean-in-assembly-code

@@ -8,11 +8,11 @@
 #define COMPILE_MODE 1
 #define SEPARATION "-----------------------------------------------------------\n"
 
-void generate_c_program(char *file_name);
+void print_c_program(char *file_name);
 void dump(void **ptr, int size, char name[]);
 
 int main(int argc, char *argv[])	{
-	char program_name[] = "simple_c_program";
+	char program_name[] = "assembly_syscall";
 	char buffer[39 + strlen(program_name)];
 	char str[] = "Hello World!\n";
 	int dim;
@@ -23,7 +23,7 @@ int main(int argc, char *argv[])	{
 	strcpy(buffer, program_name);
 	strcat(buffer, ".c");
 	printf(SEPARATION);
-	generate_c_program(buffer);
+	print_c_program(buffer);
 	printf(SEPARATION);
 
 #if COMPILE_MODE == 0
@@ -107,12 +107,12 @@ int main(int argc, char *argv[])	{
 	return 0;
 }
 
-void generate_c_program(char *file_name)	{
+void print_c_program(char *file_name)	{
 	int dim = 0;
-	char buffer[200] = {'\0'};
-	FILE *fd = fopen(file_name, "w+");
+	char *buffer;
+	FILE *fd = fopen(file_name, "rb");
 
-	printf("Generating %s:\n\n", file_name);
+	printf("Loading %s:\n\n", file_name);
 
 	//Can't use any standard library function like printf()
 	//because that would create relocation problems:
@@ -127,20 +127,16 @@ void generate_c_program(char *file_name)	{
 	//(the kernel sets the VDSO to some code best for the current processor),
 	//so in the assembly code, the write() syscall will be translated with
 	//a CALL instruction to a vDSO like printf() with the standard C library.
-	fprintf(fd, "#include <stdio.h>\n");
-	fprintf(fd, "#include <unistd.h>\n\n");
-	fprintf(fd, "int main(int argc, char *argv[])\t{\n");
-	fprintf(fd, "\tchar str[] = \"Hello World!\\n\";\n");
-	fprintf(fd, "\twrite(1, str, 13);\n"); //translates into something like "call   4f <main+0x4f>"
-	fprintf(fd, "\treturn 0;\n");
-	fprintf(fd, "}");
 
+	fseek(fd, 0, SEEK_END);
 	dim = ftell(fd);
 	fseek(fd, 0, SEEK_SET);
+	buffer = (void*)malloc(dim * sizeof(char));
 	fread(buffer, 1, dim, fd);
+	fclose(fd);
 
 	printf("%s\n", buffer);
-	fclose(fd);
+	free(buffer);
 }
 
 void dump(void **ptr, int size, char name[])	{

@@ -4,5 +4,6 @@
 !.gitignore
 !.README.md
 !.LICENSE
-!.x86_inline_examples.c
 !.load_and_execute.c
+!.assembly_syscall.c
+!.assembly_and_inline_sources_examples/*
