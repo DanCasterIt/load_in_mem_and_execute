@@ -1,16 +1,22 @@
 #include <stdio.h>
 #include <asm/unistd.h>
 
-int main()  {
-    int fd = 1;
-    size_t size = 13;
-    char str[] = "Hello world!\n";
-    const void *buf = (const void *)str;
-    asm volatile(
+ssize_t x64_write(int fd, const void *buf, size_t size)
+{
+    ssize_t ret;
+    asm volatile
+    (
         "syscall"
-        //                  EDI      RSI       RDX
-        :: "a"(__NR_write), "D"(fd), "S"(buf), "d"(size)
+        : "=a" (ret)
+        //                 EDI      RSI       RDX
+        : "0"(__NR_write), "D"(fd), "S"(buf), "d"(size)
         : "rcx", "r11", "memory"
     );
+    return ret;
+}
+
+int main()  {
+    char str[] = "Hello world!\n";
+    x64_write(1, str, 13);
     return 0;
 }

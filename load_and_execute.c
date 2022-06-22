@@ -13,12 +13,23 @@ void dump(void **ptr, int size, char name[]);
 
 int main(int argc, char *argv[])	{
 	char program_name[] = "assembly_syscall";
-	char buffer[39 + strlen(program_name)];
 	char str[] = "Hello World!\n";
-	int dim;
+	int dim, entry_point;
 	FILE *fd;
 	uint8_t *prog;
 	uintptr_t tmp;
+
+#if COMPILE_MODE == 0
+	//if using this compile option, the entry_point variable must be updated
+	char options[] = "--freestanding -fstrength-reduce -fomit-frame-pointer -finline-functions -fno-builtin -nostdlib -nostartfiles -nodefaultlibs -Wall -Werror -O0 -Iinc";
+	char linker_options[] = "-T link.ls -nostdlib -nostartfiles -nodefaultlibs";
+#else
+	//char options[] = "-fno-pie -ffunction-sections -fno-asynchronous-unwind-tables -Qn";
+	//char linker_options[] = "-T link2.ls -Wl,-Ttext=0x1000 -nostdlib -Wl,--oformat=binary";
+	char options[] = "-ffunction-sections -fno-asynchronous-unwind-tables -Qn";
+	char linker_options[] = "-T link2.ls -nostdlib -Wl,--oformat=binary";
+#endif
+	char buffer[100 + strlen(options) + strlen(linker_options)];
 
 	strcpy(buffer, program_name);
 	strcat(buffer, ".c");
@@ -26,21 +37,25 @@ int main(int argc, char *argv[])	{
 	print_c_program(buffer);
 	printf(SEPARATION);
 
-#if COMPILE_MODE == 0
-	sprintf(buffer, "gcc %s.c -c -Wl,--oformat=binary", program_name);
-	system(buffer);
-	sprintf(buffer, "objcopy -O binary -j .text %s.o %s.bin", program_name, program_name);
-	system(buffer);
-	sprintf(buffer, "objdump -d %s.o", program_name);
-	system(buffer);
-#else
-	sprintf(buffer, "gcc -masm=intel -Wall -c %s.c -o %s.o", program_name, program_name);
-	system(buffer);
-	sprintf(buffer, "objdump --disassemble --disassembler-options intel %s.o", program_name);
-	system(buffer);
-	sprintf(buffer, "objcopy --only-section=.text --output-target binary %s.o %s.bin", program_name, program_name);
-	system(buffer);
-#endif
+	sprintf(buffer, "gcc %s %s %s.c -o %s.bin", options, linker_options, program_name, program_name);
+	printf("%s\n\n", buffer);
+	if(system(buffer) > 0)
+		return -1;
+	sprintf(buffer, "gcc -c %s %s %s.c -o %s.o", options, linker_options, program_name, program_name);
+	printf("%s\n\n", buffer);
+	if(system(buffer) > 0)
+		return -1;
+	printf(SEPARATION);
+	sprintf(buffer, "objdump -D --disassembler-options intel %s.o", program_name);
+	printf("%s\n\n", buffer);
+	if(system(buffer) > 0)
+		return -1;
+	printf(SEPARATION);
+	//sprintf(buffer, "objdump -D -Mintel,i386 -b binary -m i386 %s.o", program_name);	//x86
+	sprintf(buffer, "objdump -D -Mintel,x86-64 -b binary -m i386 %s.bin", program_name);	//x64
+	printf("%s\n\n", buffer);
+	if(system(buffer) > 0)
+		return -1;
 
 	strcpy(buffer, program_name);
 	strcat(buffer, ".bin");
@@ -69,9 +84,13 @@ int main(int argc, char *argv[])	{
 	printf(SEPARATION);
 
 	tmp = (uintptr_t)prog;
+	entry_point = 0x0;	//got the entry point visually from the objdump verbose
+	                	//should be updated eachtime gcc decides to change it when recompiling the ".bin" file.
 	printf("Address lenght: %u bits\n", (unsigned int)sizeof(uintptr_t) * 8);
 	printf("File loaded in memory at 0x%0*X\n", (int)sizeof(uintptr_t) * 2, (unsigned int)tmp);
-	printf("Executing the program...\n");
+	printf("Entry point relative to the binary file at 0x%X\n", entry_point);
+	tmp += entry_point;
+	printf("Jumping at 0x%0*X to start executing...\n", (int)sizeof(uintptr_t) * 2, (unsigned int)tmp);
 
 #if JUMP_EXECUTE_MODE == 0
 	void (*func_ptr)(void) = (void (*)())tmp;
