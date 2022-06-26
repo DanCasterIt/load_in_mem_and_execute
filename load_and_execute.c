@@ -12,7 +12,7 @@ void print_c_program(char *file_name);
 void dump(void **ptr, int size, char name[]);
 
 int main(int argc, char *argv[])	{
-	char program_name[] = "assembly_syscall";
+	char program_name[] = "memory_region_examination";
 	char str[] = "Hello World!\n";
 	int dim, entry_point;
 	FILE *fd;
