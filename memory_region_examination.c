@@ -34,9 +34,10 @@ static volatile const char  str21[]     ATTRIBUTES = STRING;    //goes to .data
 static volatile const char  str22[LEN]  ATTRIBUTES = {'\0'};    //goes to .data
 static volatile const char  str23[LEN]  ATTRIBUTES;             //goes to .bss (Block Started by Symbol)
 
-//with the current compilation environment in load_and_execute,
-//trying to overwrite data in .bss, .data or everything outside
-//the function scope generates a "Segmentation fault" error.
+// With the current `load_and_execute` settings when trying to overwrite data in `.bss`, `.data`
+// or everything outside the function scope in the `.bin` file, generates a "Segmentation fault"
+// error because `load_and_execute` changes the mapped memory permissions right after the content
+// of the `.bin` file has been uploaded in memory using `mprotect(prog, dim, PROT_READ | PROT_EXEC)`
 
 ssize_t x64_write(int fd, const void *buf, size_t size)
 {

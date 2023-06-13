@@ -1,20 +1,24 @@
 # load_in_mem_and_execute
-This is a simple program that tryies to:
-
-1) Generate a C source file
-2) Compile it in pure instructions (no headers, no exe format)
-3) Load it in memory
-4) Jump at the memory address and execute it
+This is a simple program that:
+1) Generates a C source file
+2) Compiles it in pure instructions (no headers, no ELF executable format)
+3) Loads it in memory
+4) Jumps at the memory address where it is stored and executes it
 
 ## How to compile
-```gcc load_and_execute.c -o load_and_execute```
+```make all```
+or just run
+```./build_and_run_example.sh```
 
 ## Output
 ```
-> ./load_and_execute
------------------------------------------------------------
-Loading memory_region_examination.c:
-
+$ ./build_and_run_example.sh 
++ pushd /home/daniele/load_in_mem_and_execute
+~/load_in_mem_and_execute ~/load_in_mem_and_execute
++ make BLOB_NAME=memory_region_examination all
+gcc -o load_and_execute load_and_execute.o
+gcc -o memory_region_examination.bin memory_region_examination.o -ffunction-sections -fno-asynchronous-unwind-tables -Qn -T link2.ls -nostdlib -Wl,--oformat=binary
++ cat memory_region_examination.c
 #include <stdio.h>
 #include <asm/unistd.h>
 
@@ -52,7 +56,7 @@ static volatile const char  str22[LEN]  ATTRIBUTES = {'\0'};    //goes to .data
 static volatile const char  str23[LEN]  ATTRIBUTES;             //goes to .bss (Block Started by Symbol)
 
 //with the current compilation environment in load_and_execute,
-//trying to overwrite data in .bss, .data or everythong outside
+//trying to overwrite data in .bss, .data or everything outside
 //the function scope generates a "Segmentation fault" error.
 
 ssize_t x64_write(int fd, const void *buf, size_t size)
@@ -100,15 +104,8 @@ int main()  {
     x64_write(1, OUT, 13);
     return 0;
 }
-
------------------------------------------------------------
-gcc -ffunction-sections -fno-asynchronous-unwind-tables -Qn -T link2.ls -nostdlib -Wl,--oformat=binary memory_region_examination.c -o memory_region_examination.bin
-
-gcc -c -ffunction-sections -fno-asynchronous-unwind-tables -Qn -T link2.ls -nostdlib -Wl,--oformat=binary memory_region_examination.c -o memory_region_examination.o
-
------------------------------------------------------------
++ make BLOB_NAME=memory_region_examination dumpBlob
 objdump -D --disassembler-options intel memory_region_examination.o
-
 
 memory_region_examination.o:     file format elf64-x86-64
 
@@ -387,9 +384,8 @@ Disassembly of section .text.main:
  103:   b8 00 00 00 00          mov    eax,0x0
  108:   c9                      leave  
  109:   c3                      ret    
------------------------------------------------------------
+-----Sections merged together in a single binary blob------
 objdump -D -Mintel,x86-64 -b binary -m i386 memory_region_examination.bin
-
 
 memory_region_examination.bin:     file format binary
 
@@ -570,59 +566,58 @@ Disassembly of section .data:
  258:   72 6c                   jb     0x2c6
  25a:   64 21 0a                and    DWORD PTR fs:[rdx],ecx
         ...
------------------------------------------------------------
-Hex dump of "Hello World!\n":
-       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-   0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A
------------------------------------------------------------
-Hex dump of memory_region_examination.bin:
-       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-   0: 55 48 89 E5 48 81 EC D0 00 00 00 48 B8 48 65 6C
-  10: 6C 6F 20 57 6F 48 89 45 E0 C7 45 E8 72 6C 64 21
-  20: 66 C7 45 EC 0A 00 48 C7 45 D0 00 00 00 00 C7 45
-  30: D8 00 00 00 00 C6 45 DC 00 48 89 45 B0 C7 45 B8
-  40: 72 6C 64 21 66 C7 45 BC 0A 00 48 C7 45 A0 00 00
-  50: 00 00 C7 45 A8 00 00 00 00 C6 45 AC 00 48 89 45
-  60: 80 C7 45 88 72 6C 64 21 66 C7 45 8C 0A 00 48 C7
-  70: 85 70 FF FF FF 00 00 00 00 C7 85 78 FF FF FF 00
-  80: 00 00 00 C6 85 7C FF FF FF 00 48 89 85 50 FF FF
-  90: FF C7 85 58 FF FF FF 72 6C 64 21 66 C7 85 5C FF
-  A0: FF FF 0A 00 48 C7 85 40 FF FF FF 00 00 00 00 C7
-  B0: 85 48 FF FF FF 00 00 00 00 C6 85 4C FF FF FF 00
-  C0: C7 45 FC 00 00 00 00 EB 1E 8B 45 FC 48 63 D0 48
-  D0: 8D 05 EA 00 00 00 0F B6 14 02 8B 45 FC 48 98 88
-  E0: 54 05 E0 83 45 FC 01 83 7D FC 0C 7E DC 48 8D 45
-  F0: E0 BA 0D 00 00 00 48 89 C6 BF 01 00 00 00 E8 07
- 100: 00 00 00 B8 00 00 00 00 C9 C3 55 48 89 E5 89 7D
- 110: EC 48 89 75 E0 48 89 55 D8 B8 01 00 00 00 8B 7D
- 120: EC 48 8B 75 E0 48 8B 55 D8 0F 05 48 89 45 F8 48
- 130: 8B 45 F8 5D C3 00 00 00 00 00 00 00 00 00 00 00
- 140: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 150: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 160: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 170: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 180: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 190: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 1A0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 1B0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 1C0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 1D0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 1E0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 1F0: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 200: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 210: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 220: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
- 230: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 240: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00 00 00
- 250: 48 65 6C 6C 6F 20 57 6F 72 6C 64 21 0A 00
------------------------------------------------------------
++ ./load_and_execute memory_region_examination.bin
 Address lenght: 64 bits
-File loaded in memory at 0x0000000033AC1000
+File loaded in memory at 0x000000003C1A0000
 Entry point relative to the binary file at 0x0
-Jumping at 0x0000000033AC1000 to start executing...
+Jumping at 0x000000003C1A0000 to start executing...
 Hello World!
 Execution correctly returned.
------------------------------------------------------------
++ echo 'Hello World!'
++ hd
+00000000  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a           |Hello World!.|
+0000000d
++ hd memory_region_examination.bin
+00000000  55 48 89 e5 48 81 ec d0  00 00 00 48 b8 48 65 6c  |UH..H......H.Hel|
+00000010  6c 6f 20 57 6f 48 89 45  e0 c7 45 e8 72 6c 64 21  |lo WoH.E..E.rld!|
+00000020  66 c7 45 ec 0a 00 48 c7  45 d0 00 00 00 00 c7 45  |f.E...H.E......E|
+00000030  d8 00 00 00 00 c6 45 dc  00 48 89 45 b0 c7 45 b8  |......E..H.E..E.|
+00000040  72 6c 64 21 66 c7 45 bc  0a 00 48 c7 45 a0 00 00  |rld!f.E...H.E...|
+00000050  00 00 c7 45 a8 00 00 00  00 c6 45 ac 00 48 89 45  |...E......E..H.E|
+00000060  80 c7 45 88 72 6c 64 21  66 c7 45 8c 0a 00 48 c7  |..E.rld!f.E...H.|
+00000070  85 70 ff ff ff 00 00 00  00 c7 85 78 ff ff ff 00  |.p.........x....|
+00000080  00 00 00 c6 85 7c ff ff  ff 00 48 89 85 50 ff ff  |.....|....H..P..|
+00000090  ff c7 85 58 ff ff ff 72  6c 64 21 66 c7 85 5c ff  |...X...rld!f..\.|
+000000a0  ff ff 0a 00 48 c7 85 40  ff ff ff 00 00 00 00 c7  |....H..@........|
+000000b0  85 48 ff ff ff 00 00 00  00 c6 85 4c ff ff ff 00  |.H.........L....|
+000000c0  c7 45 fc 00 00 00 00 eb  1e 8b 45 fc 48 63 d0 48  |.E........E.Hc.H|
+000000d0  8d 05 ea 00 00 00 0f b6  14 02 8b 45 fc 48 98 88  |...........E.H..|
+000000e0  54 05 e0 83 45 fc 01 83  7d fc 0c 7e dc 48 8d 45  |T...E...}..~.H.E|
+000000f0  e0 ba 0d 00 00 00 48 89  c6 bf 01 00 00 00 e8 07  |......H.........|
+00000100  00 00 00 b8 00 00 00 00  c9 c3 55 48 89 e5 89 7d  |..........UH...}|
+00000110  ec 48 89 75 e0 48 89 55  d8 b8 01 00 00 00 8b 7d  |.H.u.H.U.......}|
+00000120  ec 48 8b 75 e0 48 8b 55  d8 0f 05 48 89 45 f8 48  |.H.u.H.U...H.E.H|
+00000130  8b 45 f8 5d c3 00 00 00  00 00 00 00 00 00 00 00  |.E.]............|
+00000140  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a 00 00 00  |Hello World!....|
+00000150  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+00000160  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a 00 00 00  |Hello World!....|
+00000170  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00000190  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a 00 00 00  |Hello World!....|
+*
+000001d0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001e0  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a 00 00 00  |Hello World!....|
+*
+00000210  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+*
+00000230  48 65 6c 6c 6f 20 57 6f  72 6c 64 21 0a 00 00 00  |Hello World!....|
+*
+0000025e
++ make BLOB_NAME=memory_region_examination clean
+rm -f load_and_execute load_and_execute.o
+rm -f memory_region_examination.bin memory_region_examination.o
++ popd
+~/load_in_mem_and_execute
 ```
 
 ## Interesting sources around the web
@@ -676,4 +671,4 @@ Program memory map and data segments:
 https://en.wikipedia.org/wiki/Data_segment
 
 ## Known Issues
-with the current compilation environment in load_and_execute, trying to overwrite data in .bss, .data or everything outside the function scope generates a "Segmentation fault" error.
+With the current `load_and_execute` settings when trying to overwrite data in `.bss`, `.data` or everything outside the function scope in the `.bin` file, generates a "Segmentation fault" error because `load_and_execute` changes the mapped memory permissions right after the content of the `.bin` file has been uploaded in memory using `mprotect(prog, dim, PROT_READ | PROT_EXEC)`
