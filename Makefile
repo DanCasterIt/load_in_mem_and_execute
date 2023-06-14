@@ -3,7 +3,7 @@ CC=gcc
 LOADER_NAME := load_and_execute
 BLOB_NAME := assembly_syscall
 
-BLOB_LINKER_SCRIPT := link2.ls
+BLOB_LINKER_SCRIPT := link.ls
 BLOB_OPTIONS := -ffunction-sections -fno-asynchronous-unwind-tables -Qn
 BLOB_LINKER_OPTIONS := -T ${BLOB_LINKER_SCRIPT} -nostdlib -Wl,--oformat=binary
 

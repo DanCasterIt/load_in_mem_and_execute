@@ -1,26 +1,9 @@
-OUTPUT_FORMAT("binary")
-ENTRY(start)
-phys = 0x0;
+ENTRY(main)
 SECTIONS
 {
-  .text phys : AT(phys) {
-    code = .;
-    *(.text)
-    *(.rodata)
-    . = ALIGN(4);
-  }
-  .data : AT(phys + (data - code))
-  {
-    data = .;
-    *(.data)
-    . = ALIGN(4);
-  }
-  .bss : AT(phys + (bss - code))
-  {
-    bss = .;
-    *(.bss)
-    . = ALIGN(4);
-  }
-  end = .;
+    .text :
+    {
+        *(.text.main);
+        *(.text*);
+    }
 }
-

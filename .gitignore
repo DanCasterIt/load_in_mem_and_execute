@@ -5,8 +5,7 @@
 !.README.md
 !.LICENSE
 !.link.ls
-!.link2.ls
 !.load_and_execute.c
 !.assembly_syscall.c
-!.memory_region_examination.c
-!.assembly_and_inline_sources_examples/*
+!.build_and_run_example.sh
+!.Makefile

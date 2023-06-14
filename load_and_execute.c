@@ -15,6 +15,7 @@ int main(int argc, char *argv[])	{
 		printf("Couldn't find a file named %s\n", argv[1]);
 		return -1;
 	}
+
 	// Get the file size
 	fseek(fd, 0, SEEK_END);
 	int dim = ftell(fd);
@@ -28,17 +29,20 @@ int main(int argc, char *argv[])	{
 		printf("ERROR: mmap() failed\n");
 		return 0;
 	}
+
 	// Load the file content into the mapped memory
 	fread(prog, 1, dim, fd);
 	fclose(fd);
+
 	// Change mapped memory permissions
 	mprotect(prog, dim, PROT_READ | PROT_EXEC);
 
 	uintptr_t tmp = (uintptr_t)prog;
-	int entry_point = 0x0;	// Got the entry point visually from the objdump verbose
-							// It should be updated eachtime gcc decides to change it when recompiling the ".bin" file.
-							// If using the link2.ls linker script, the .text section will always be put at the beginning
-							// of the executable, so the entrypoint is always 0.
+	int entry_point = 0x0;  // Got the entry point visually from the objdump verbose.
+	                        // It should be updated each time gcc decides to change it when recompiling the ".bin" file.
+	                        // If using the link.ls linker script, the .text.main section will always be put at the beginning
+	                        // of the executable, so the entrypoint is always 0.
+
 	printf("Address lenght: %u bits\n", (unsigned int)sizeof(uintptr_t) * 8);
 	printf("File loaded in memory at 0x%0*X\n", (int)sizeof(uintptr_t) * 2, (unsigned int)tmp);
 	printf("Entry point relative to the binary file at 0x%X\n", entry_point);
@@ -73,7 +77,6 @@ int main(int argc, char *argv[])	{
 #endif
 
 	printf("Execution correctly returned.\n");
-
 	munmap(prog, dim);
 	return 0;
 }
